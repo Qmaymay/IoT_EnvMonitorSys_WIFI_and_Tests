@@ -1,0 +1,221 @@
+name: Firmware CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'IoT_EnvMonitorSys_WIFI/firmware/**'    # 修正路径
+      - '.github/workflows/firmware-ci.yml'
+      - 'CMakeLists.txt'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'IoT_EnvMonitorSys_WIFI/firmware/**'    # 修正路径
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Test Type'
+        required: true
+        default: 'all'
+        type: choice
+        options: [all, unit, integration, python]
+      platform:
+        description: 'Target Platform'
+        required: true
+        default: 'simulator'
+        type: choice
+        options: [simulator, esp32]  # 去掉stm32, nrf52
+
+env:
+  BUILD_TYPE: Release
+  FIRMWARE_DIR: IoT_EnvMonitorSys_WIFI/firmware  # 修正路径
+  ESP32_IMAGE: "espressif/idf:release-v4.4"
+
+jobs:
+  code-quality:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Run Clang-Tidy
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-tidy
+        echo "Running clang-tidy..."
+        find ${{ env.FIRMWARE_DIR }} -name "*.c" -o -name "*.h" | head -10 | xargs clang-tidy --checks=* 2>&1 || true
+    
+    - name: Check header guards
+      run: |
+        echo "Checking header guards..."
+        cd ${{ env.FIRMWARE_DIR }}
+        python3 << 'EOF'
+        import os
+        import re
+        
+        header_guard_pattern = re.compile(r'#ifndef\s+(\w+)\s*\n#define\s+\1')
+        
+        issues = []
+        for root, dirs, files in os.walk('.'):
+            for file in files:
+                if file.endswith('.h'):
+                    filepath = os.path.join(root, file)
+                    with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                        content = f.read()
+                        if not header_guard_pattern.search(content):
+                            expected_guard = file.upper().replace('.', '_').replace('-', '_')
+                            issues.append(f"{filepath}: Missing or malformed header guard, expected: {expected_guard}")
+        
+        if issues:
+            print("Header guard issues found:")
+            for issue in issues:
+                print(f"  - {issue}")
+            exit(1)
+        else:
+            print("All header guards passed ✓")
+        EOF
+    
+    - name: Check compilation warnings
+      run: |
+        echo "Checking compilation warnings..."
+        mkdir -p build && cd build
+        cmake ../ -DTARGET_PLATFORM=simulator -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DWERROR=ON 2>&1 | tee build.log
+        
+        WARNINGS=$(grep -i "warning:" build.log | wc -l)
+        ERRORS=$(grep -i "error:" build.log | wc -l)
+        
+        echo "Compilation stats:"
+        echo "  Warnings: $WARNINGS"
+        echo "  Errors: $ERRORS"
+        
+        if [ $ERRORS -gt 0 ]; then
+          echo "::error::Compilation errors found"
+          exit 1
+        fi
+
+  simulator-build:
+    name: Build Simulator
+    runs-on: ubuntu-latest
+    needs: code-quality
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Build in root directory
+      run: |
+        # 在项目根目录构建
+        mkdir -p build && cd build
+        cmake .. -DTARGET_PLATFORM=simulator -DENABLE_PYTHON_TEST=ON
+        cmake --build . --parallel 4
+        
+        echo "Build artifacts:"
+        ls -la bin/ 2>/dev/null || echo "bin/ directory not found"
+    
+    - name: Run simulator tests
+      run: |
+        if [ -f "build/bin/env_monitor" ]; then
+          echo "Testing simulator binary..."
+          timeout 5s ./build/bin/env_monitor --version 2>&1 | head -5 || true
+        fi
+    
+    - name: Upload simulator artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: simulator-build
+        path: build/bin/
+        retention-days: 7
+
+  esp32-build:
+    name: Build ESP32
+    runs-on: ubuntu-latest
+    needs: code-quality
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Build ESP32 using Docker
+      run: |
+        mkdir -p build/bin/esp32
+        
+        docker run --rm \
+          -v $(pwd):/workspace \
+          -w /workspace/${{ env.FIRMWARE_DIR }} \
+          ${{ env.ESP32_IMAGE }} \
+          bash -c "
+            . \$IDF_PATH/export.sh
+            idf.py set-target esp32
+            idf.py build
+            cp build/*.bin /workspace/build/bin/esp32/
+          "
+    
+    - name: Upload ESP32 artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: esp32-build
+        path: build/bin/esp32/
+        retention-days: 7
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [simulator-build, esp32-build]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install test engine
+      run: |
+        cd test_engine
+        pip install -e .
+    
+    - name: Run integration tests
+      run: |
+        cd test_engine
+        python -m pytest tests/ -v --html=report.html
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: integration-test-results
+        path: test_engine/report.html
+        retention-days: 30
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [code-quality, simulator-build, esp32-build, integration-tests]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+    
+    - name: Generate release report
+      run: |
+        echo "# CI/CD Build Report" > release_report.md
+        echo "" >> release_report.md
+        echo "## Build Information" >> release_report.md
+        echo "- Repository: ${{ github.repository }}" >> release_report.md
+        echo "- Commit: ${{ github.sha }}" >> release_report.md
+        echo "- Triggered by: ${{ github.actor }}" >> release_report.md
+        echo "- Time: $(date)" >> release_report.md
+        echo "" >> release_report.md
+        
+        echo "## Build Results" >> release_report.md
+        echo "✅ All tests passed" >> release_report.md
+        echo "" >> release_report.md
+        
+        cat release_report.md

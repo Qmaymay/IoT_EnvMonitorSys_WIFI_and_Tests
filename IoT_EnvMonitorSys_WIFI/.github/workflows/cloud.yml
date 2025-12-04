@@ -1,0 +1,48 @@
+name: Cloud Services CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'cloud_services/**'
+      - '.github/workflows/cloud.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'cloud_services/**'
+  workflow_dispatch:  # 手动触发
+
+jobs:
+  test-and-build:
+    name: Test and Build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: |
+          cd cloud_services
+          npm ci
+          
+      - name: Run tests
+        run: |
+          cd cloud_services
+          npm test
+          
+      - name: Build
+        run: |
+          cd cloud_services
+          npm run build
+          
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud-services
+          path: cloud_services/dist/

@@ -1,98 +1,91 @@
-name: CI - IoT Environment Monitor
+name: Integration Tests
 
 on:
   push:
-    branches: [ main, develop, feature/mqtt ]
-  pull_request:
-    branches: [ main ]
-
-env:
-  BUILD_TYPE: Release
+    branches: [main]
+    paths:
+      - 'test_engine/**'
+      - 'IoT_EnvMonitorSys_WIFI/**'
+      - '.github/workflows/integration.yml'
+  schedule:
+    - cron: '0 2 * * *'  # 每天凌晨2点
+    
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: 'Test Scope'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - quick
+          - firmware-e2e
+          - cloud-e2e
 
 jobs:
-  build-c-firmware:
-    name: Build C Firmware
+  integration-test:
+    name: Integration Test
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install build dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y gcc make cmake
-
-    - name: Configure CMake
-      run: |
-        mkdir -p build
-        cd build
-        cmake .. -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
-
-    - name: Build firmware
-      run: |
-        cd build
-        cmake --build . --config ${{ env.BUILD_TYPE }}
-
-    - name: Verify Linux library naming
-      run: |
-        echo "✅ 构建完成，检查输出文件:"
-        ls -la build/bin/ || echo "build/bin 目录不存在"
-
-  test-python-services:
-    name: Test Python Services
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
-
-    - name: Install Python dependencies
-      run: |
-        pip install pytest paho-mqtt numpy scikit-learn joblib
-
-    - name: Run basic Python tests
-      run: |
-        python -c "import paho.mqtt.client as mqtt; print('MQTT import OK')"
-        python -c "import sqlite3; print('SQLite import OK')"
-        python -c "import sklearn; print('scikit-learn import OK')"
-        python -c "import joblib; print('joblib import OK')"
-        python -c "import numpy; print('numpy import OK')"
-
-
-  test_engine:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    needs: [build-c-firmware, test-python-services]
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
-
-    - name: Install test dependencies
-      run: |
-        pip install --upgrade pip
-        pip install pytest paho-mqtt
-        pip install numpy scikit-learn joblib --force-reinstall
-
-
-    - name: Run test_engine tests
-      run: |
-        export PYTHONPATH=$PWD:$PWD/IoT_EnvMonitorSys_Basic/cloud_services
-        cd test_engine
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          
+      - name: Build components if needed
+        run: |
+          echo "Building components for integration testing..."
+          
+          # 构建固件
+          cd IoT_EnvMonitorSys_WIFI/firmware
+          mkdir -p build && cd build
+          cmake .. -DTARGET_PLATFORM=simulator
+          make -j4
+          
+          # 构建云端
+          cd ../../cloud_services
+          npm ci
+          npm run build
+          
+      - name: Setup test environment
+        run: |
+          cd test_engine
+          pip install -e .
+          
+      - name: Run integration tests
+        env:
+          TEST_SCOPE: ${{ github.event.inputs.scope || 'full' }}
         
-        # 手动指定要运行的测试文件
-        pytest tests/test_cloud_services.py -v
-        pytest tests/test_complete_data_flow.py -v
-        pytest tests/test_sensor.py -v
-        pytest tests/test_integration.py -v
+        run: |
+          cd test_engine
+          
+          case "$TEST_SCOPE" in
+            "quick")
+              echo "Running quick smoke tests..."
+              python -m pytest tests/smoke/ -v
+              ;;
+            "firmware-e2e")
+              echo "Running firmware end-to-end tests..."
+              python -m pytest tests/system/firmware/ -v
+              ;;
+            "cloud-e2e")
+              echo "Running cloud end-to-end tests..."
+              python -m pytest tests/system/cloud/ -v
+              ;;
+            *)
+              echo "Running full integration tests..."
+              python -m pytest tests/ -v --html=report.html
+              ;;
+          esac
+          
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-results
+          path: |
+            test_engine/report.html
+            test_engine/test-results/
+          retention-days: 30

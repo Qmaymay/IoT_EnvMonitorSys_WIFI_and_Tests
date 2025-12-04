@@ -1,0 +1,24 @@
+#ifndef APP_CONFIG_H
+#define APP_CONFIG_H
+
+// 应用层配置
+#define MAX_SENSOR_READ_RETRY   3
+#define SENSOR_CALIBRATION_COUNT 10
+
+// 数据滤波配置
+#define TEMPERATURE_FILTER_WINDOW  5
+#define HUMIDITY_FILTER_WINDOW     5
+#define AIR_QUALITY_FILTER_WINDOW  3
+
+// 报警阈值
+#define TEMPERATURE_ALARM_HIGH     35.0f
+#define TEMPERATURE_ALARM_LOW      5.0f
+#define HUMIDITY_ALARM_HIGH        85.0f
+#define HUMIDITY_ALARM_LOW         20.0f
+#define AIR_QUALITY_ALARM_HIGH     150.0f
+
+// 电池报警
+#define BATTERY_VOLTAGE_LOW        3.3f
+#define BATTERY_VOLTAGE_CRITICAL   3.0f
+
+#endif // APP_CONFIG_H

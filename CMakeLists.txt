@@ -8,8 +8,8 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # 关键：设置全局输出目录
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build/bin)
 
 # 创建构建目录
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -20,6 +20,17 @@ set(ENABLE_PYTHON_BINDINGS OFF CACHE BOOL "启用Python绑定")
 
 # 直接添加 firmware 子目录
 add_subdirectory(IoT_EnvMonitorSys_WIFI/firmware)
+
+# 只设置一个target
+# if(TARGET env_monitor_wifi)
+#     set_target_properties(env_monitor_wifi PROPERTIES
+#         RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin
+#         RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin
+#         LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin
+#         LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin
+#     )
+# endif()
+
 
 message(STATUS "=== 完整项目构建 ===")
 message(STATUS "项目名称: ${PROJECT_NAME}")

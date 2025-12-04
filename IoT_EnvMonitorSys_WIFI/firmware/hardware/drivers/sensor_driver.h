@@ -2,8 +2,9 @@
 #define SENSOR_DRIVER_H
 
 #include "../include/common.h"
-#include "drivers/sht30.h"
-#include "drivers/mq135.h"
+#include "sht30.h"
+#include "mq135.h"
+
 
 // 传感器管理器
 typedef struct {

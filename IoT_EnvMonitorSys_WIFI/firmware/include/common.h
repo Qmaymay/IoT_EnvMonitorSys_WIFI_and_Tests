@@ -25,7 +25,17 @@ typedef struct {
     uint16_t sequence;      // 数据序列号
 } sensor_data_t;
 
-// 设备状态
+// 设备状态机状态（工作模式）
+typedef enum {
+    STATE_INIT,
+    STATE_CONNECTING_WIFI,
+    STATE_CONNECTING_MQTT,
+    STATE_NORMAL,
+    STATE_ERROR
+} device_state_t;
+
+
+// 设备状态（设备信息）
 typedef struct {
     char device_id[32];
     uint32_t firmware_version;

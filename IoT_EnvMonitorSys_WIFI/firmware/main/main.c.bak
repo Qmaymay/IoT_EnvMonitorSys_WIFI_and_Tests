@@ -11,6 +11,28 @@
 #include <unistd.h>
 #endif
 
+// Simple result codes
+typedef enum {
+    RESULT_OK = 0,
+    RESULT_ERROR = -1
+} result_code_t;
+
+// Sensor data
+typedef struct {
+    float temperature;
+    float humidity;
+    float air_quality;
+    uint32_t timestamp;
+} sensor_data_t;
+
+// Device states
+typedef enum {
+    STATE_INIT,
+    STATE_CONNECTING_WIFI,
+    STATE_CONNECTING_MQTT,
+    STATE_NORMAL,
+    STATE_ERROR
+} device_state_t;
 
 // Function prototypes
 result_code_t sensor_read_all(sensor_data_t* data);
@@ -18,6 +40,7 @@ result_code_t wifi_connect(const char* ssid, const char* password);
 result_code_t mqtt_connect(const char* broker, int port);
 result_code_t mqtt_publish_data(const char* topic, const sensor_data_t* data);
 void delay_ms(uint32_t ms);
+void log_info(const char* message);
 
 // Configuration
 #define WIFI_SSID "MyWiFi"
@@ -37,31 +60,28 @@ int main(void) {
     // Initialize random seed
     srand((unsigned int)time(NULL));
     
-    // Initialize logger (可选，如果logger.c中有初始化函数)
-    // logger_init(LOG_LEVEL_INFO);
-    
-    log_info("MAIN", "=== IoT Environmental Monitor System ===");
+    log_info("=== IoT Environmental Monitor System ===");
     
     while (1) {
         switch (state) {
             case STATE_INIT:
-                log_info("MAIN", "Initializing...");
+                log_info("Initializing...");
                 state = STATE_CONNECTING_WIFI;
                 break;
                 
             case STATE_CONNECTING_WIFI:
-                log_info("MAIN", "Connecting to WiFi...");
+                log_info("Connecting to WiFi...");
                 
                 if (wifi_connect(WIFI_SSID, WIFI_PASSWORD) == RESULT_OK) {
-                    log_info("MAIN", "WiFi connected successfully");
+                    log_info("WiFi connected successfully");
                     state = STATE_CONNECTING_MQTT;
                     retry_count = 0;
                 } else {
-                    log_info("MAIN", "WiFi connection failed");
+                    log_info("WiFi connection failed");
                     retry_count++;
                     
                     if (retry_count >= max_retries) {
-                        log_info("MAIN", "Max retries reached, entering error state");
+                        log_info("Max retries reached, entering error state");
                         state = STATE_ERROR;
                     }
                 }
@@ -69,18 +89,18 @@ int main(void) {
                 break;
                 
             case STATE_CONNECTING_MQTT:
-                log_info("MAIN", "Connecting to MQTT server...");
+                log_info("Connecting to MQTT server...");
                 
                 if (mqtt_connect(MQTT_BROKER, MQTT_PORT) == RESULT_OK) {
-                    log_info("MAIN", "MQTT connected successfully");
+                    log_info("MQTT connected successfully");
                     state = STATE_NORMAL;
                     retry_count = 0;
                 } else {
-                    log_info("MAIN", "MQTT connection failed");
+                    log_info("MQTT connection failed");
                     retry_count++;
                     
                     if (retry_count >= max_retries) {
-                        log_info("MAIN", "Max retries reached, reconnecting WiFi");
+                        log_info("Max retries reached, reconnecting WiFi");
                         state = STATE_CONNECTING_WIFI;
                     }
                 }
@@ -101,11 +121,11 @@ int main(void) {
                     
                     // Publish to MQTT
                     if (mqtt_publish_data(MQTT_TOPIC, &sensor_data) != RESULT_OK) {
-                        log_info("MAIN", "MQTT publish failed, reconnecting...");
+                        log_info("MQTT publish failed, reconnecting...");
                         state = STATE_CONNECTING_MQTT;
                     }
                 } else {
-                    log_info("MAIN", "Sensor read failed");
+                    log_info("Sensor read failed");
                 }
                 
                 // Wait for next sample
@@ -113,7 +133,7 @@ int main(void) {
                 break;
                 
             case STATE_ERROR:
-                log_info("MAIN", "Error state, waiting for recovery...");
+                log_info("Error state, waiting for recovery...");
                 delay_ms(5000);  // Wait 5 seconds before retry
                 state = STATE_CONNECTING_WIFI;
                 break;
@@ -147,7 +167,7 @@ result_code_t sensor_read_all(sensor_data_t* data) {
 
 // Simulated WiFi connection
 result_code_t wifi_connect(const char* ssid, const char* password) {
-    log_info("WIFI", "Attempting to connect to WiFi...");
+    log_info("Attempting to connect to WiFi...");
     
     // Simulate 80% success rate
     if ((rand() % 100) < 80) {
@@ -188,3 +208,4 @@ void delay_ms(uint32_t ms) {
     usleep(ms * 1000);
 #endif
 }
+

@@ -49,12 +49,13 @@ include_directories(
 
 # 源文件列表
 set(SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/main/main.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/main.c
     ${CMAKE_CURRENT_SOURCE_DIR}/hardware/drivers/sht30.c
     ${CMAKE_CURRENT_SOURCE_DIR}/hardware/drivers/mq135.c
     ${CMAKE_CURRENT_SOURCE_DIR}/hardware/drivers/sensor_driver.c
     ${CMAKE_CURRENT_SOURCE_DIR}/system/logger.c
 )
+
 
 # 可执行文件 - 主设备程序
 add_executable(env_monitor_wifi ${SOURCES})

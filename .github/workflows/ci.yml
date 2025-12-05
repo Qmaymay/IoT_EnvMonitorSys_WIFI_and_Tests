@@ -2,7 +2,7 @@ name: Integration & System Test
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - 'test_engine/**'
       - 'IoT_EnvMonitorSys_WIFI/**'

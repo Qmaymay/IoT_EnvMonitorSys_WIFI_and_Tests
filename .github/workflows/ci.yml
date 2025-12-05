@@ -1,4 +1,4 @@
-name: Integration Tests
+name: Integration & System Test
 
 on:
   push:
@@ -46,9 +46,12 @@ jobs:
           
           # 构建云端
           cd ../../cloud_services
-          npm ci
-          npm run build
-          
+          if [ -f "requirements.txt" ]; then
+            pip install -r requirements.txt
+          else
+            pip install paho-mqtt sqlite3 pytest
+         
+                   
       - name: Setup test environment
         run: |
           cd test_engine

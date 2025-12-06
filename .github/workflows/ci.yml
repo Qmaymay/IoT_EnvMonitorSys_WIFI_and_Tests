@@ -2,15 +2,23 @@ name: Integration & System Test
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]  # ✅ 监听dev分支
+    paths:
+      - 'IoT_EnvMonitorSys_WIFI/**'
+      - 'test_engine/**'
+      - '.github/workflows/ci.yml'
+    
+  pull_request:
+    branches: [main, dev]
     paths:
       - 'test_engine/**'
       - 'IoT_EnvMonitorSys_WIFI/**'
-      - '.github/workflows/integration.yml'
+  
+  # 每天凌晨2点自动运行
   schedule:
-    - cron: '0 2 * * *'  # 每天凌晨2点
-    
-  workflow_dispatch:
+    - cron: '0 2 * * *'
+
+  workflow_dispatch:  # 手动触发
     inputs:
       scope:
         description: 'Test Scope'
@@ -20,8 +28,8 @@ on:
         options:
           - full
           - quick
-          - firmware-e2e
-          - cloud-e2e
+          - firmware
+          - cloud
 
 jobs:
   integration-test:
@@ -29,66 +37,73 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout with submodules
+      - name: Checkout code
         uses: actions/checkout@v4
+          
+      - name: Setup environment
+        uses: actions/setup-python@v4
         with:
-          submodules: true
+          python-version: '3.10'
           
-      - name: Build components if needed
+      - name: Install dependencies
         run: |
-          echo "Building components for integration testing..."
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake gcc g++
+          pip install pytest pytest-html paho-mqtt scikit-learn
           
-          # 构建固件
+          
+      - name: Build firmware
+        run: |
+          echo "Building firmware..."
           cd IoT_EnvMonitorSys_WIFI/firmware
           mkdir -p build && cd build
           cmake .. -DTARGET_PLATFORM=simulator
           make -j4
+          echo "✅ Firmware built successfully"
+          ls -la  # 查看生成的文件
           
-          # 构建云端
-          cd ../../cloud_services
-          if [ -f "requirements.txt" ]; then
-            pip install -r requirements.txt
-          else
-            pip install paho-mqtt sqlite3 pytest
-         
-                   
-      - name: Setup test environment
+      - name: Setup Python environment
         run: |
-          cd test_engine
-          pip install -e .
+          # 安装cloud_services依赖
+          cd IoT_EnvMonitorSys_WIFI/cloud_services
+          pip install pytest pytest-html
+          pip install pytest pytest-html paho-mqtt scikit-learn
           
-      - name: Run integration tests
+          # 安装test_engine依赖
+          cd ../../test_engine
+          pip install pytest pytest-html
+          
+          echo "✅ Python dependencies installed"
+
+
+      - name: Run tests
         env:
-          TEST_SCOPE: ${{ github.event.inputs.scope || 'full' }}
-        
+          PYTHONPATH: ${{ github.workspace }}/IoT_EnvMonitorSys_WIFI/cloud_services:${{ github.workspace }}/IoT_EnvMonitorSys_WIFI/cloud_services/data_collector:${{ github.workspace }}/IoT_EnvMonitorSys_WIFI/cloud_services/shared
         run: |
           cd test_engine
           
-          case "$TEST_SCOPE" in
-            "quick")
-              echo "Running quick smoke tests..."
-              python -m pytest tests/smoke/ -v
-              ;;
-            "firmware-e2e")
-              echo "Running firmware end-to-end tests..."
-              python -m pytest tests/system/firmware/ -v
-              ;;
-            "cloud-e2e")
-              echo "Running cloud end-to-end tests..."
-              python -m pytest tests/system/cloud/ -v
-              ;;
-            *)
-              echo "Running full integration tests..."
-              python -m pytest tests/ -v --html=report.html
-              ;;
-          esac
+          # 判断测试策略
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "🔍 PR检查:运行全面回归测试..."
+            pytest tests/ -v --html=report.html --self-contained-html -q
+            
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "🌙 半夜系统测试：端到端验证..."
+            pytest tests/ -v --html=report.html --self-contained-html -q
+            
+          else
+            echo "⚡ 日常推送：快速测试..."
+            # 快速冒烟测试
+            pytest tests/ -v --maxfail=3 --tb=short
+          fi
           
-      - name: Upload test results
+      - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: integration-test-results
-          path: |
-            test_engine/report.html
-            test_engine/test-results/
+          name: test-reports-${{ github.run_number }}
+          path: test_engine/*_report.html
           retention-days: 30
+
+
+          

@@ -29,13 +29,13 @@ void wifi_status_callback(bool connected, const char* ssid, int8_t rssi);
 #define SAMPLE_INTERVAL_MS 2000
 
 // 设备状态枚举（根据你的common.h可能需要调整）
-typedef enum {
-    STATE_INIT,
-    STATE_CONNECTING_WIFI,
-    STATE_CONNECTING_MQTT,
-    STATE_NORMAL,
-    STATE_ERROR
-} device_state_t;
+// typedef enum {
+//     STATE_INIT,
+//     STATE_CONNECTING_WIFI,
+//     STATE_CONNECTING_MQTT,
+//     STATE_NORMAL,
+//     STATE_ERROR
+// } device_state_t;
 
 // WiFi状态回调函数
 void wifi_status_callback(bool connected, const char* ssid, int8_t rssi) {

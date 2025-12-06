@@ -54,6 +54,9 @@ set(SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/hardware/drivers/mq135.c
     ${CMAKE_CURRENT_SOURCE_DIR}/hardware/drivers/sensor_driver.c
     ${CMAKE_CURRENT_SOURCE_DIR}/system/logger.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/network/wifi_manager.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/esp32/esp32_wifi.c
+
 )
 
 

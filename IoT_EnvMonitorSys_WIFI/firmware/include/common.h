@@ -26,6 +26,16 @@ typedef struct {
 } sensor_data_t;
 
 // 设备状态机状态（工作模式）
+// typedef enum {
+//     DEVICE_STATE_INIT,
+//     DEVICE_STATE_CONNECTING_WIFI,
+//     DEVICE_STATE_CONNECTING_MQTT,
+//     DEVICE_STATE_NORMAL,
+//     DEVICE_STATE_CONFIG,
+//     DEVICE_STATE_ERROR,
+//     DEVICE_STATE_OTA,
+//     DEVICE_STATE_SLEEP
+// } device_state_t;
 typedef enum {
     STATE_INIT,
     STATE_CONNECTING_WIFI,
@@ -33,7 +43,6 @@ typedef enum {
     STATE_NORMAL,
     STATE_ERROR
 } device_state_t;
-
 
 // 设备状态（设备信息）
 typedef struct {

@@ -83,7 +83,7 @@ jobs:
           
           # 判断测试策略
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "🔍 PR检查：运行全面回归测试..."
+            echo "🔍 PR检查:运行全面回归测试..."
             pytest tests/ -v --html=pr_full_report.html --cov=.
             
           elif [ "${{ github.event_name }}" = "schedule" ]; then

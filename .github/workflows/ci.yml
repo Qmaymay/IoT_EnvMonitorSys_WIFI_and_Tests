@@ -117,7 +117,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake
+          sudo apt-get install -y build-essential cmake gcc g++
           pip install pytest
           
       - name: Build firmware
@@ -127,8 +127,19 @@ jobs:
           mkdir -p build && cd build
           cmake .. -DTARGET_PLATFORM=simulator
           make -j4
+          echo "✅ Firmware built successfully"
+          ls -la  # 查看生成的文件
           
-      - name: Run a simple test
+      - name: Setup Python environment
         run: |
-          echo "Workflow is working!"
-          ls -la IoT_EnvMonitorSys_WIFI/
+          # 安装cloud_services依赖
+          cd IoT_EnvMonitorSys_WIFI/cloud_services
+          pip install paho-mqtt scikit-learn
+          
+          # 安装test_engine依赖
+          cd ../../test_engine
+          pip install pytest pytest-html
+          
+          echo "✅ Python dependencies installed"
+
+      

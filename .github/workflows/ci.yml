@@ -142,4 +142,20 @@ jobs:
           
           echo "✅ Python dependencies installed"
 
-      
+      - name: Run basic tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}/IoT_EnvMonitorSys_WIFI/cloud_services:${{ github.workspace }}
+        run: |
+          cd test_engine
+
+          # 设置正确的路径（包含data_collector和shared）
+          export PYTHONPATH="$PYTHONPATH:${{ github.workspace }}/IoT_EnvMonitorSys_WIFI/cloud_services/data_collector:${{ github.workspace }}/IoT_EnvMonitorSys_WIFI/cloud_services/shared"
+          
+          echo "运行云端服务集成测试..."
+          python -m pytest tests/system/cloud/ -v \
+            --html=cloud_test_report.html \
+            --self-contained-html \
+            --junitxml=cloud_test_results.xml
+
+
+          

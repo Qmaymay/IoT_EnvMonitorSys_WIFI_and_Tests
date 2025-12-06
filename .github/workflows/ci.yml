@@ -49,7 +49,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake gcc g++
-          pip install pytest pytest-html paho-mqtt scikit-learn pytest-cov
+          pip install pytest pytest-html paho-mqtt scikit-learn
           
           
       - name: Build firmware
@@ -85,11 +85,11 @@ jobs:
           # 判断测试策略
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "🔍 PR检查:运行全面回归测试..."
-            pytest tests/ -v --html=pr_full_report.html --cov=.
+            pytest tests/ -v --html=report.html --self-contained-html -q
             
           elif [ "${{ github.event_name }}" = "schedule" ]; then
             echo "🌙 半夜系统测试：端到端验证..."
-            pytest tests/ -v --html=system_report.html
+            pytest tests/ -v --html=report.html --self-contained-html -q
             
           else
             echo "⚡ 日常推送：快速测试..."
